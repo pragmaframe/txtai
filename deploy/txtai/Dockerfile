@@ -1,8 +1,13 @@
 FROM neuml/txtai-cpu:latest
 
-# onnxruntime 1.17+ requires AVX. This machine has SSE4.2 but no AVX/AVX2
-# (Intel Atom/Tremont). Downgrade to the last AVX-free release.
-RUN pip install --force-reinstall --no-cache-dir "onnxruntime==1.15.1"
+# onnxruntime's .so has PT_GNU_STACK set to executable (RWE), which newer
+# kernels reject with EINVAL.  Clear the execstack bit with patchelf.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends patchelf && \
+    find /usr/local/lib/python3.10/site-packages/onnxruntime -name "*.so" \
+        -exec patchelf --clear-execstack {} \; && \
+    apt-get remove -y patchelf && apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
 
 # fastapi_mcp needs base_url on its HTTP client so tool calls resolve correctly.
 # Use grep to find the file and sed to patch it — no Python import needed.
