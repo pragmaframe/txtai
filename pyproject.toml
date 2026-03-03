@@ -1,2 +1,7 @@
 [tool.black]
 line-length = 150
+
+[dependency-groups]
+dev = [
+    "pymupdf>=1.27.1",
+]

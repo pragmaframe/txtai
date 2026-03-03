@@ -1,0 +1,43 @@
+# txtai API configuration for MCP semantic search + graph RAG service
+#
+# Serving machine: load a pre-built archive (set writable: false)
+# Build machine:   set writable: true and remove the .tar.gz extension from path
+
+# Index storage path. Accepts a directory or a .tar.gz archive.
+# The archive is auto-extracted on startup.
+path: /data/index
+
+# Read-only mode for serving. Set to true only during initial build/indexing.
+writable: false
+
+# Expose all enabled endpoints as MCP tools at /mcp
+mcp: true
+
+# Embeddings index with semantic vector search and graph RAG
+embeddings:
+  # Default sentence-transformers model (384-dim, fast, good quality).
+  # Must match the model used at build time — dimension mismatch will break loading.
+  path: sentence-transformers/all-MiniLM-L6-v2
+
+  # Store original document content in SQLite alongside the vector index.
+  # Required for graph node attributes and full-text retrieval.
+  content: true
+
+  # Hybrid scoring: combine dense vector similarity with sparse BM25 keyword scores.
+  # Improves recall for exact-match queries without hurting semantic results.
+  scoring:
+    method: bm25
+    terms: true
+
+  # Graph module (NetworkX backend). Builds a semantic similarity graph over
+  # the index; enables graph-path traversal and topic-based RAG queries.
+  graph:
+    # Minimum cosine similarity to create an edge between two nodes.
+    minscore: 0.15
+
+    # Enable community detection and automatic topic labelling.
+    topics:
+      # Louvain community detection (fast, high quality).
+      algorithm: louvain
+      # Number of BM25 terms used to label each topic cluster.
+      terms: 4
