@@ -63,7 +63,7 @@ services:
     ports:
       # Expose only to localhost so OPNSense/nginx can reach it.
       # Never bind to 0.0.0.0 — that would bypass the TLS terminator.
-      - "127.0.0.1:4180:4180"
+      - "4180:4180"
     depends_on:
       - txtai
     restart: unless-stopped
