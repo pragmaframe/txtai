@@ -1,8 +1,10 @@
-"""Patch txtai's application.py to pass server_url to FastApiMCP."""
-import inspect
-import txtai.api.application as m
+"""Patch txtai's application.py to pass base_url to FastApiMCP's HTTP client."""
+import importlib.util
 
-path = inspect.getfile(m)
+# Locate the file without importing it (importing triggers onnxruntime/NLTK init)
+spec = importlib.util.find_spec("txtai.api.application")
+assert spec and spec.origin, "txtai.api.application not found"
+path = spec.origin
 with open(path) as f:
     src = f.read()
 
