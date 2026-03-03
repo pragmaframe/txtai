@@ -50,8 +50,11 @@ import nltk
 
 nltk.download("punkt_tab", quiet=True)
 
+import fitz  # pymupdf
+
+from nltk.tokenize import sent_tokenize
+
 from txtai import Embeddings
-from txtai.pipeline import Textractor, Segmentation
 
 
 # ── Embedding model ───────────────────────────────────────────────────────────
@@ -99,27 +102,22 @@ def load_pdf_files(source: Path, chunk_sentences: int = 10):
     documents produce focused, retrievable passages rather than one giant blob.
     The document ID encodes the filename and chunk index for stable upserts.
     """
-    textractor = Textractor(backend=None)
-    segmentation = Segmentation(sentences=True)
-
     for path in sorted(source.rglob("*.pdf")):
         rel = str(path.relative_to(source))
         print(f"  Extracting {rel} …")
         try:
-            text = textractor(str(path))
+            doc = fitz.open(str(path))
+            text = "\n".join(page.get_text() for page in doc)
+            doc.close()
         except Exception as exc:
             print(f"  WARNING: could not extract {rel}: {exc}", file=sys.stderr)
             continue
 
-        sentences = segmentation(text)
-        if isinstance(sentences, str):
-            sentences = [sentences]
+        sentences = sent_tokenize(text)
 
         # Group sentences into chunks of chunk_sentences
-        sentence_groups = [sentences[i : i + chunk_sentences] for i in range(0, len(sentences), chunk_sentences)]
-
-        for i, group in enumerate(sentence_groups):
-            chunk = " ".join(s for s in group if isinstance(s, str)).strip()
+        for i in range(0, len(sentences), chunk_sentences):
+            chunk = " ".join(sentences[i : i + chunk_sentences]).strip()
             if chunk:
                 doc_id = f"{rel}::chunk{i}"
                 yield doc_id, {"text": chunk, "filename": rel}, None
