@@ -46,6 +46,10 @@ import os
 import sys
 from pathlib import Path
 
+import nltk
+
+nltk.download("punkt_tab", quiet=True)
+
 from txtai import Embeddings
 from txtai.pipeline import Textractor, Segmentation
 
