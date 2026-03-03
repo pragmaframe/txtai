@@ -100,7 +100,7 @@ def load_pdf_files(source: Path, chunk_sentences: int = 10):
     The document ID encodes the filename and chunk index for stable upserts.
     """
     textractor = Textractor(backend=None)
-    segmentation = Segmentation(sentences=chunk_sentences)
+    segmentation = Segmentation(sentences=True)
 
     for path in sorted(source.rglob("*.pdf")):
         rel = str(path.relative_to(source))
@@ -111,12 +111,15 @@ def load_pdf_files(source: Path, chunk_sentences: int = 10):
             print(f"  WARNING: could not extract {rel}: {exc}", file=sys.stderr)
             continue
 
-        chunks = segmentation(text)
-        if isinstance(chunks, str):
-            chunks = [chunks]
+        sentences = segmentation(text)
+        if isinstance(sentences, str):
+            sentences = [sentences]
 
-        for i, chunk in enumerate(chunks):
-            chunk = chunk.strip()
+        # Group sentences into chunks of chunk_sentences
+        sentence_groups = [sentences[i : i + chunk_sentences] for i in range(0, len(sentences), chunk_sentences)]
+
+        for i, group in enumerate(sentence_groups):
+            chunk = " ".join(s for s in group if isinstance(s, str)).strip()
             if chunk:
                 doc_id = f"{rel}::chunk{i}"
                 yield doc_id, {"text": chunk, "filename": rel}, None
