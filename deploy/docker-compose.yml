@@ -5,13 +5,14 @@ services:
   # All public traffic must flow through oauth2-proxy.
   txtai:
     image: neuml/txtai-cpu:latest
+    command: uvicorn "txtai.api:app" --host 0.0.0.0 --port 8000
     environment:
       CONFIG: /config/config.yml
       # Uncomment to cache Hugging Face models across restarts:
       # HF_HOME: /data/hf-cache
     volumes:
       - ./config.yml:/config/config.yml:ro
-      - index_data:/data/index
+      - ${INDEX_PATH:-./index.tar.gz}:/data/index/index.tar.gz:ro
       # Uncomment for persistent HF model cache:
       # - hf_cache:/data/hf-cache
     restart: unless-stopped
@@ -67,6 +68,3 @@ services:
       - txtai
     restart: unless-stopped
 
-volumes:
-  index_data:
-  # hf_cache:

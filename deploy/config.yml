@@ -5,7 +5,7 @@
 
 # Index storage path. Accepts a directory or a .tar.gz archive.
 # The archive is auto-extracted on startup.
-path: /data/index
+path: /data/index/index.tar.gz
 
 # Read-only mode for serving. Set to true only during initial build/indexing.
 writable: false
