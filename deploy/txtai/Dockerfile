@@ -8,7 +8,7 @@ FROM neuml/txtai-cpu:latest
 #
 #  2. execstack: onnxruntime's .so has PT_GNU_STACK=RWE; newer kernels reject
 #     loading it with EINVAL.  Clear the bit with patchelf.
-RUN pip install --force-reinstall --no-cache-dir "onnxruntime==1.15.1"
+RUN pip install --force-reinstall --no-cache-dir "onnxruntime==1.15.1" "numpy<2"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends patchelf && \
