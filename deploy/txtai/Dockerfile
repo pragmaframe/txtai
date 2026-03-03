@@ -1,7 +1,15 @@
 FROM neuml/txtai-cpu:latest
 
-# onnxruntime's .so has PT_GNU_STACK set to executable (RWE), which newer
-# kernels reject with EINVAL.  Clear the execstack bit with patchelf.
+# This machine is Intel Atom/Tremont (SSE4.2 only, no AVX/AVX2).
+# Two onnxruntime issues need fixing:
+#
+#  1. AVX2: onnxruntime 1.17+ emits AVX2 instructions at runtime → SIGILL.
+#     Downgrade to 1.15.1, the last release that runs on SSE4.2-only CPUs.
+#
+#  2. execstack: onnxruntime's .so has PT_GNU_STACK=RWE; newer kernels reject
+#     loading it with EINVAL.  Clear the bit with patchelf.
+RUN pip install --force-reinstall --no-cache-dir "onnxruntime==1.15.1"
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends patchelf && \
     find /usr/local/lib/python3.10/site-packages/onnxruntime -name "*.so" \
