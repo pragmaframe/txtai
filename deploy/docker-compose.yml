@@ -1,70 +1,33 @@
 services:
 
-  # ── txtai API ────────────────────────────────────────────────────────────────
-  # Internal only — NOT reachable from the host or the internet.
-  # All public traffic must flow through oauth2-proxy.
+  # ── MCP OAuth 2.1 proxy ───────────────────────────────────────────────────
+  # Handles dynamic client registration, Google OIDC login, JWT issuance,
+  # and transparent proxying of authenticated /mcp requests to txtai.
+  #
+  # OPNSense nginx proxies all traffic here on port 8080.
+  mcp-auth:
+    build: ./mcp_auth
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      MCP_DOMAIN: ${MCP_DOMAIN}
+      ALLOWED_EMAIL: ${ALLOWED_EMAIL:-}
+      TXTAI_URL: http://txtai:8000
+    depends_on:
+      - txtai
+
+  # ── txtai API ─────────────────────────────────────────────────────────────
+  # Internal only — no host port binding, reachable only by mcp-auth.
+  # Custom build patches fastapi_mcp to include server_url so tool calls work.
   txtai:
-    image: neuml/txtai-cpu:latest
+    build: ./txtai
     command: uvicorn "txtai.api:app" --host 0.0.0.0 --port 8000
     environment:
       CONFIG: /config/config.yml
-      # Uncomment to cache Hugging Face models across restarts:
-      # HF_HOME: /data/hf-cache
     volumes:
       - ./config.yml:/config/config.yml:ro
       - ${INDEX_PATH:-./index.tar.gz}:/data/index/index.tar.gz:ro
-      # Uncomment for persistent HF model cache:
-      # - hf_cache:/data/hf-cache
     restart: unless-stopped
-    # No `ports` block — txtai is only reachable on the internal Docker network.
-
-  # ── OAuth2 Proxy ─────────────────────────────────────────────────────────────
-  # Sits in front of txtai and validates OAuth2 / OIDC bearer tokens.
-  # Only this service binds to a host port (127.0.0.1 only).
-  # OPNSense / nginx proxies HTTPS → 127.0.0.1:4180.
-  oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:latest
-    command:
-      # OAuth2 / OIDC provider
-      - --provider=google
-      - --oidc-issuer-url=https://accounts.google.com
-
-      # Restrict access to a specific Google Workspace domain.
-      # Remove or set to '*' to allow any Google account.
-      - --email-domain=${ALLOWED_EMAIL_DOMAIN}
-
-      # Upstream: the txtai service on the internal network
-      - --upstream=http://txtai:8000
-
-      # Bind address for this proxy
-      - --http-address=0.0.0.0:4180
-
-      # OAuth2 client credentials (from Google Cloud Console)
-      - --client-id=${GOOGLE_CLIENT_ID}
-      - --client-secret=${GOOGLE_CLIENT_SECRET}
-
-      # Cookie encryption key: openssl rand -base64 32
-      - --cookie-secret=${COOKIE_SECRET}
-      - --cookie-secure=true
-
-      # Accept MCP bearer tokens from Claude.ai without requiring a browser
-      # OAuth flow for each API call.  Claude.ai performs the OAuth flow once,
-      # receives an access token, then sends it as "Authorization: Bearer <token>"
-      # on every subsequent MCP request.  oauth2-proxy validates the token via
-      # OIDC introspection / JWKS and proxies the request to txtai.
-      - --skip-jwt-bearer-tokens=true
-      - --oidc-jwks-url=https://www.googleapis.com/oauth2/v3/certs
-
-      # Silence redirect-loop noise when bearer tokens are used
-      - --skip-provider-button=true
-
-      # Required redirect URL registered in Google Cloud Console
-      - --redirect-url=https://${MCP_DOMAIN}/oauth2/callback
-    ports:
-      # Expose only to localhost so OPNSense/nginx can reach it.
-      # Never bind to 0.0.0.0 — that would bypass the TLS terminator.
-      - "4180:4180"
-    depends_on:
-      - txtai
-    restart: unless-stopped
-
